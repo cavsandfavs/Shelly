@@ -1,2 +1,2 @@
 # Shellie
-A self mental health care application where a tiny little hermit crab can guide your journey
+A studying help application where a tiny little hermit crab can guide your journey.
