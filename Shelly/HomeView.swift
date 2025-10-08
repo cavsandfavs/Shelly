@@ -13,11 +13,13 @@ struct HomeView: View {
     @State private var newTaskTitle: String = ""
     @State private var date = Date()
     @State private var time = Date()
-    @State private var NVclassName: String? = nil
+    @State private var NSVClassNameSelection: String? = nil
     @State private var className: String = ""
     @State private var showingAddPopover = false
     @State private var tasksDueToday: [AssignmentTask] = []
-    @State private var isNavigating: Bool = false
+    private var classNames: [String] {
+            Array(Set(tasksFetched.map { $0.class_Name ?? "None" })).sorted()
+        }
     private var dateformatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -34,32 +36,38 @@ struct HomeView: View {
     // Continously fetches CoreData changes into the view and sorts these in earliest due order
     @FetchRequest(
         entity: AssignmentTask.entity(),
-        sortDescriptors: [NSSortDescriptor(keyPath: \AssignmentTask.taskDate, ascending: true)],
+        sortDescriptors: [
+            NSSortDescriptor(keyPath: \AssignmentTask.taskDate, ascending: true),
+            NSSortDescriptor(keyPath: \AssignmentTask.taskTime, ascending: true)
+        ],
         animation: .default
     ) var tasksFetched: FetchedResults<AssignmentTask> // Stores a special type of collection, similar to arrays
     
     var body: some View {
-        NavigationStack {
-            NavigationSplitView {
-                Text("Classes")
-                    .font(.largeTitle)
-                    .bold()
-                    .padding()
-                    .foregroundStyle(.orange)
-                let classNames = Array(Set(tasksFetched.map { $0.class_Name ?? "None" }))
-                List(classNames, id: \.self, selection: $NVclassName) { name in
-                    NavigationLink(destination: ClassView(tappedName: name)) {
-                                Text(name)
-                                .bold()
-                                .padding()
-                                .foregroundStyle(.white)
-                                .background(Color.orange)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                } detail: {
-                ZStack(alignment: .topTrailing) {
+        // Define the side menu with our Home Button and list of classes
+        NavigationSplitView {
+            Button(action: {
+                NSVClassNameSelection = nil
+            })  {
+                Text("Home")
+                    .font(.title)
+            }
+            
+            Text("My Classes")
+                .font(.title)
+            List(classNames, id: \.self, selection: $NSVClassNameSelection) { name in
+                Text(name).bold()
+            }
+            .listStyle(.sidebar)
+            .foregroundStyle(.orange)
+            .navigationSplitViewColumnWidth(min: 150, ideal: 250, max: .infinity)
+            
+            
+        } detail: {
+            ZStack(alignment: .topTrailing) {
+                if let className = NSVClassNameSelection {
+                    ClassView(className: className)
+                } else {
                     VStack {
                         Text("Assignments")
                             .font(.largeTitle)
@@ -90,8 +98,7 @@ struct HomeView: View {
                                     Text(task.taskTitle ?? "Untitled")
                                     Text(dateformatter.string(from: task.taskDate ?? Date()))
                                     Text(timeFormatter.string(from: task.taskTime ?? Date()))
-                                    Text(task.class_Name ?? "None")
-                                    
+                                    Text(task.class_Name ?? "")
                                     Button("Completed") {
                                         delete(task: task)
                                     }
@@ -131,15 +138,10 @@ struct HomeView: View {
                                 showingAddPopover = false
                             }
                             .disabled(newTaskTitle.isEmpty)
+                            .disabled(className.isEmpty)
                         }
                         .padding()
                     }
-                    
-                    Image("Welcome Crab")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 100, height: 100)
-                        .padding()
                 }
             }
         }
@@ -167,3 +169,4 @@ struct HomeView: View {
             }
         }
     }
+

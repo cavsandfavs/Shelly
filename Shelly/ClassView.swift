@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ClassView: View {
-    let tappedName: String
+    let className: String
     
     @FetchRequest(
         entity: AssignmentTask.entity(),
@@ -19,8 +19,9 @@ struct ClassView: View {
     var body: some View {
         VStack {
             ForEach(tasksFetched) { task in
-                if task.class_Name == tappedName {
-                    classViewFunction()
+                if task.class_Name == className {
+                    let pass = task.taskTitle
+                    classViewFunction(tasknames: pass ?? "No Title")
                 } else {
                     EmptyView()
                 }
@@ -28,9 +29,9 @@ struct ClassView: View {
         }
     }
     
-    func classViewFunction() -> some View {
+    func classViewFunction(tasknames: String) -> some View {
         VStack {
-            Text(tappedName)
+            Text(tasknames)
         }
     }
 }
