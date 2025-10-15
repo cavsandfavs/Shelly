@@ -8,7 +8,25 @@
 import SwiftUI
 
 struct ClassView: View {
-    let className: String
+    @Environment(\.managedObjectContext) private var viewContext
+    @EnvironmentObject var appData: AppData
+    let name: String
+    // Filters the array to include just the tasks from the passed classname
+    private var tasksForClass: [AssignmentTask] {
+            tasksFetched.filter { $0.class_name == name }
+        }
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }
+    private var timeFormatter: DateFormatter {
+        let formatter2 = DateFormatter()
+        formatter2.dateStyle = .none
+        formatter2.timeStyle = .short
+        return formatter2
+    }
     
     @FetchRequest(
         entity: AssignmentTask.entity(),
@@ -17,21 +35,49 @@ struct ClassView: View {
     ) var tasksFetched: FetchedResults<AssignmentTask> // Stores a special type of collection, similar to arrays
     
     var body: some View {
-        VStack {
-            ForEach(tasksFetched) { task in
-                if task.class_Name == className {
-                    let pass = task.taskTitle
-                    classViewFunction(tasknames: pass ?? "No Title")
-                } else {
-                    EmptyView()
+        ScrollView {
+            VStack (alignment: .leading) {
+                Text(name)
+                    .font(.largeTitle)
+                    .foregroundStyle(.blue)
+                
+                ForEach(tasksForClass, id: \.objectID) { task in
+                    HStack(spacing: 10) {
+                        if task.class_name == name {
+                            Text(task.taskTitle ?? "Untitled")
+                            Text(dateFormatter.string(from: task.taskDate ?? Date()))
+                            Text(timeFormatter.string(from: task.taskTime ?? Date()))
+                            Text(task.class_name ?? "")
+                            Button("Completed") {
+                                delete(task: task)
+                            }
+                            .font(.caption)
+                            .foregroundStyle(Color.green)
+                        }
+                    }
                 }
             }
         }
     }
     
-    func classViewFunction(tasknames: String) -> some View {
-        VStack {
-            Text(tasknames)
+    private func delete(task: AssignmentTask) {
+        viewContext.delete(task)
+        appData.tasksDueToday.removeAll { $0.objectID == task.objectID }
+        
+        do {
+            try viewContext.save()
+        } catch {
+            print("Error occured: \(error)")
+        }
+    }
+    private func dailyGoalCount() {
+        // Clear and rebuild the array whenever it is called to prevent duplicates
+        appData.tasksDueToday = []
+        for task in tasksFetched {
+            let isToday = Calendar.current.isDate(task.taskDate ?? Date(), inSameDayAs: Date.now)
+            if isToday && task != task.objectID {
+                appData.tasksDueToday.append(task)
+            }
         }
     }
 }
