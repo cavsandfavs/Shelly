@@ -62,7 +62,9 @@ struct HomeView: View {
                 Text("Home")
                     .font(.title)
             }
-            .buttonStyle(PlainButtonStyle())
+            
+            Text("My Tasks")
+                .font(.title)
             
             Text("My Classes")
                 .font(.title)
@@ -80,6 +82,7 @@ struct HomeView: View {
                     Button("Add") {
                         addNewClass(name: newClassName)
                     }
+                    .disabled(newClassName.isEmpty)
                 }
             }
             List(classes, id: \.self, selection: $NSVClassNameSelection) { name in
@@ -96,7 +99,7 @@ struct HomeView: View {
                     VStack {
                         Text("Assignments")
                             .font(.largeTitle)
-                            .frame(maxWidth: .infinity, alignment: .center)
+                            
                             .bold()
                             .padding()
                             .foregroundStyle(.blue)
@@ -191,7 +194,7 @@ struct HomeView: View {
         }
     }
     // Deletes the completed task from the list when it is called
-    private func delete(task: AssignmentTask) {
+    public func delete(task: AssignmentTask) {
         viewContext.delete(task)
         appData.tasksDueToday.removeAll { $0.objectID == task.objectID }
         

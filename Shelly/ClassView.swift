@@ -13,8 +13,8 @@ struct ClassView: View {
     let name: String
     // Filters the array to include just the tasks from the passed classname
     private var tasksForClass: [AssignmentTask] {
-            tasksFetched.filter { $0.class_name == name }
-        }
+        tasksFetched.filter { $0.class_name == name }
+    }
     private var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -34,12 +34,30 @@ struct ClassView: View {
         animation: .default
     ) var tasksFetched: FetchedResults<AssignmentTask> // Stores a special type of collection, similar to arrays
     
+    @FetchRequest(
+        entity: Classes.entity(),
+        sortDescriptors: [],
+        animation: .default
+    ) var classesFetched: FetchedResults<Classes>
+    // Maps the classes from their property to strings, the set removes duplicates, and the Array allows sorting
+    private var classes: [String] {
+        Array(Set(classesFetched.map { $0.name ?? "None" })).sorted()
+    }
+    
     var body: some View {
-        ScrollView {
+        List {
             VStack (alignment: .leading) {
                 Text(name)
-                    .font(.largeTitle)
+                    .font(.largeTitle .bold())
                     .foregroundStyle(.blue)
+                    .padding()
+                HStack {
+                    Button("Delete Class") {
+                        // Fix the nil situation!!!
+                        let classToDelete = classesFetched.first(where: { $0.name == name })!
+                        deleteClass(className: classToDelete)
+                    }
+                }
                 
                 ForEach(tasksForClass, id: \.objectID) { task in
                     HStack(spacing: 10) {
@@ -70,14 +88,13 @@ struct ClassView: View {
             print("Error occured: \(error)")
         }
     }
-    private func dailyGoalCount() {
-        // Clear and rebuild the array whenever it is called to prevent duplicates
-        appData.tasksDueToday = []
-        for task in tasksFetched {
-            let isToday = Calendar.current.isDate(task.taskDate ?? Date(), inSameDayAs: Date.now)
-            if isToday && task != task.objectID {
-                appData.tasksDueToday.append(task)
-            }
+    
+    private func deleteClass(className: Classes) {
+        viewContext.delete(className)
+        do {
+            try viewContext.save()
+        } catch {
+            print("Error occured: \(error)")
         }
     }
 }
