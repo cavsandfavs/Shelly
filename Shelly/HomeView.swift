@@ -85,9 +85,9 @@ private struct SidebarView: View {
     var body: some View {
         Button(action: { selectedClass = nil }) {
             Text("Home").font(.title)
+                .foregroundStyle(Color.blue)
         }
 
-        Text("My Tasks").font(.title)
         Text("My Classes").font(.title)
 
         HStack {
@@ -147,7 +147,6 @@ private struct AssignmentsDetailView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(PlainButtonStyle())
-
             List {
                 ForEach(tasksFetched, id: \.objectID) { task in
                     TaskRowView(task: task, onDelete: onDelete)
