@@ -48,11 +48,11 @@ struct ClassView: View {
                     Button("Delete Class") {
                         // Fix the nil situation!!!
                         let classToDelete = classesFetched.first(where: { $0.name == name })!
-                        deleteClass(className: classToDelete)
+                        deleteClass(_class_: classToDelete)
                     }
                 }
 
-                ForEach(tasksForClass, id: \.objectID) { task in
+                ForEach(tasksForClass, id: \.self) { task in
                     ClassTaskRowView(
                         task: task,
                         name: name,
@@ -101,8 +101,20 @@ private extension ClassView {
         }
     }
 
-    func deleteClass(className: Classes) {
-        viewContext.delete(className)
+    func deleteClass(_class_: Classes) {
+        // Remove all the tasks with the deleted class
+        for task in tasksFetched {
+            if task.class_name == _class_.name {
+                viewContext.delete(task)
+                do {
+                    try viewContext.save()
+                } catch {
+                    print("Error occured: \(error)")
+                }
+            }
+        }
+        // Delete the class
+        viewContext.delete(_class_)
         do {
             try viewContext.save()
         } catch {
