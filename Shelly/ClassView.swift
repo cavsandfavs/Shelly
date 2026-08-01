@@ -13,6 +13,9 @@ struct ClassView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject var appData: AppData
     let name: String
+    @State var editedName: String = ""
+    @State var showEditTaskPopover: Bool = false
+
 
     // Filters the array to include just the tasks from the passed classname
     private var tasksForClass: [AssignmentTask] {
@@ -38,19 +41,54 @@ struct ClassView: View {
 
     var body: some View {
         List {
-            VStack(alignment: .leading) {
-                Text(name)
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(.blue)
-                    .padding()
-
                 HStack {
-                    Button("Delete Class") {
-                        // Fix the nil situation!!!
-                        let classToDelete = classesFetched.first(where: { $0.name == name })!
-                        deleteClass(_class_: classToDelete)
+                    Text(name)
+                        .font(.largeTitle.bold())
+                        .foregroundStyle(.blue)
+
+                    Spacer()
+
+                    // Defines the options menu and the buttons inside
+                    Menu {
+                        Button("Delete Class", role: .destructive) {
+                            guard let classToDelete = classesFetched.first(where: { $0.name == name }) else {
+                                return
+                            }
+                            deleteClass(_class_: classToDelete)
+                        }
+                        Button("Edit Class") {
+                            editedName = name
+                            showEditTaskPopover.toggle()
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    
+                    .popover(isPresented: $showEditTaskPopover) {
+                        Text("Edit Name")
+                        TextField("New Name", text: $editedName)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 220)
+                        .onSubmit {
+                            editClass(newName: editedName)
+                        }
+                        HStack {
+                            Button("Cancel") {
+                                showEditTaskPopover = false
+                            }
+                            .buttonStyle(.bordered)
+                            
+                            Spacer()
+                            
+                            Button("Change") {
+                                editClass(newName: editedName)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(editedName.isEmpty)
+                        }
                     }
                 }
+                .padding()
 
                 ForEach(tasksForClass, id: \.self) { task in
                     ClassTaskRowView(
@@ -62,7 +100,6 @@ struct ClassView: View {
             }
         }
     }
-}
 
 // MARK: - Subviews
 
@@ -98,6 +135,16 @@ private extension ClassView {
             try viewContext.save()
         } catch {
             print("Error occured: \(error)")
+        }
+    }
+    
+    func editClass(newName: String) {
+        guard let classToEdit = classesFetched.first(where: { $0.name == name }) else { return }
+        classToEdit.name = newName
+        do {
+            try viewContext.save()
+        } catch {
+            print("Save failed: \(error)")
         }
     }
 

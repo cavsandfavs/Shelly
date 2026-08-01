@@ -97,17 +97,22 @@ private struct SidebarView: View {
         .navigationSplitViewColumnWidth(min: 150, ideal: 250, max: .infinity)
         
         Button(action: { showingClassPopover.toggle() }) {
-            Text("Add Class").font(.subheadline)
+            Image(systemName: "plus")
+                .foregroundStyle(Color.green)
         }
+        
+        .padding()
         
         .popover(isPresented: $showingClassPopover) {
             VStack(alignment: .leading, spacing: 16) {
                 Text("New Class")
                     .font(.headline)
-                
                 TextField("Class name", text: $newClassName)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 220)
+                    .onSubmit {
+                        onAddClass()
+                    }
                 
                 HStack {
                     Button("Cancel") {
@@ -270,6 +275,9 @@ private extension HomeView {
     }
 
     func addTask() {
+        guard !newTaskTitle.isEmpty, !className.isEmpty else {
+                return
+            }
         let newTask = AssignmentTask(context: viewContext)
         newTask.taskTitle = newTaskTitle
         newTask.taskDate = date
