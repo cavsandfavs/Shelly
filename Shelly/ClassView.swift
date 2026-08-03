@@ -12,14 +12,14 @@ import SwiftUI
 struct ClassView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject var appData: AppData
-    let name: String
-    @State var editedName: String = ""
-    @State var showEditTaskPopover: Bool = false
+    @ObservedObject var clazz: Classes
+    let onDeleteClass: () -> Void
+    
+    @State private var editedName: String = ""
+    @State private var showEditTaskPopover: Bool = false
 
-
-    // Filters the array to include just the tasks from the passed classname
     private var tasksForClass: [AssignmentTask] {
-        tasksFetched.filter { $0.class_name == name }
+        tasksFetched.filter { $0.clazz == clazz }
     }
 
     @FetchRequest(
@@ -28,99 +28,79 @@ struct ClassView: View {
         animation: .default
     ) var tasksFetched: FetchedResults<AssignmentTask>
 
-    @FetchRequest(
-        entity: Classes.entity(),
-        sortDescriptors: [],
-        animation: .default
-    ) var classesFetched: FetchedResults<Classes>
-
-    // Maps the classes from their property to strings, the set removes duplicates, and the Array allows sorting
-    private var classes: [String] {
-        Array(Set(classesFetched.map { $0.name ?? "None" })).sorted()
-    }
-
     var body: some View {
         List {
-                HStack {
-                    Text(name)
-                        .font(.largeTitle.bold())
-                        .foregroundStyle(.blue)
+            HStack {
+                Text(clazz.name ?? "Untitled")
+                    .font(.largeTitle.bold())
+                    .foregroundStyle(.blue)
 
-                    Spacer()
+                Spacer()
 
-                    // Defines the options menu and the buttons inside
-                    Menu {
-                        Button("Delete Class", role: .destructive) {
-                            guard let classToDelete = classesFetched.first(where: { $0.name == name }) else {
-                                return
-                            }
-                            deleteClass(_class_: classToDelete)
-                        }
-                        Button("Edit Class") {
-                            editedName = name
-                            showEditTaskPopover.toggle()
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
+                Menu {
+                    Button("Delete Class", role: .destructive) {
+                        deleteClass()
                     }
-                    
-                    .popover(isPresented: $showEditTaskPopover) {
-                        Text("Edit Name")
-                        TextField("New Name", text: $editedName)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 220)
-                        .onSubmit {
+                    Button("Edit Class") {
+                        editedName = clazz.name ?? ""
+                        showEditTaskPopover.toggle()
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .popover(isPresented: $showEditTaskPopover) {
+                    Text("Edit Name")
+                    TextField("New Name", text: $editedName)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 220)
+                    .onSubmit {
+                        editClass(newName: editedName)
+                    }
+                    HStack {
+                        Button("Cancel") {
+                            showEditTaskPopover = false
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Spacer()
+                        
+                        Button("Change") {
                             editClass(newName: editedName)
                         }
-                        HStack {
-                            Button("Cancel") {
-                                showEditTaskPopover = false
-                            }
-                            .buttonStyle(.bordered)
-                            
-                            Spacer()
-                            
-                            Button("Change") {
-                                editClass(newName: editedName)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(editedName.isEmpty)
-                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(editedName.isEmpty)
                     }
                 }
-                .padding()
+            }
+            .padding()
 
-                ForEach(tasksForClass, id: \.self) { task in
-                    ClassTaskRowView(
-                        task: task,
-                        name: name,
-                        onDelete: { delete(task: task) }
-                    )
-                }
+            ForEach(tasksForClass, id: \.objectID) { task in
+                ClassTaskRowView(
+                    task: task,
+                    onDelete: { delete(task: task) }
+                )
             }
         }
     }
+}
 
 // MARK: - Subviews
 
 private struct ClassTaskRowView: View {
     let task: AssignmentTask
-    let name: String
     let onDelete: () -> Void
 
     @EnvironmentObject var appData: AppData
 
     var body: some View {
         HStack(spacing: 10) {
-            if task.class_name == name {
-                Text(task.taskTitle ?? "Untitled")
-                Text(appData.dateFormatter.string(from: task.taskDate ?? Date()))
-                Text(appData.timeFormatter.string(from: task.taskTime ?? Date()))
-                Text(task.class_name ?? "")
-                Button("Completed", action: onDelete)
-                    .font(.caption)
-                    .foregroundStyle(Color.green)
-            }
+            Text(task.taskTitle ?? "Untitled")
+            Text(appData.dateFormatter.string(from: task.taskDate ?? Date()))
+            Text(appData.timeFormatter.string(from: task.taskTime ?? Date()))
+            Text(task.clazz?.name ?? "")
+            Button("Completed", action: onDelete)
+                .font(.caption)
+                .foregroundStyle(Color.green)
         }
     }
 }
@@ -139,31 +119,24 @@ private extension ClassView {
     }
     
     func editClass(newName: String) {
-        guard let classToEdit = classesFetched.first(where: { $0.name == name }) else { return }
-        classToEdit.name = newName
+        clazz.name = newName
         do {
             try viewContext.save()
+            showEditTaskPopover = false
         } catch {
             print("Save failed: \(error)")
         }
     }
 
-    func deleteClass(_class_: Classes) {
-        // Remove all the tasks with the deleted class
-        for task in tasksFetched {
-            if task.class_name == _class_.name {
-                viewContext.delete(task)
-                do {
-                    try viewContext.save()
-                } catch {
-                    print("Error occured: \(error)")
-                }
-            }
+    func deleteClass() {
+        for task in tasksForClass {
+            viewContext.delete(task)
         }
-        // Delete the class
-        viewContext.delete(_class_)
+        viewContext.delete(clazz)
+        
         do {
             try viewContext.save()
+            onDeleteClass()
         } catch {
             print("Error occured: \(error)")
         }
