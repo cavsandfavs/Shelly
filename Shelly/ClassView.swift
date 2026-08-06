@@ -129,9 +129,11 @@ private extension ClassView {
     }
 
     func deleteClass() {
+        let deletedTaskIDs = tasksForClass.map(\.objectID)
         for task in tasksForClass {
             viewContext.delete(task)
         }
+        appData.tasksDueToday.removeAll { deletedTaskIDs.contains($0.objectID) }
         viewContext.delete(clazz)
         
         do {

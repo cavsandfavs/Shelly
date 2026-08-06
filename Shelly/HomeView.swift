@@ -102,8 +102,7 @@ private struct SidebarView: View {
         Text("My Classes").font(.title)
         List(selection: $selectedClassID) {
             ForEach(classes, id: \.objectID) { clazz in
-                Text(clazz.name ?? "Untitled")
-                    .bold()
+                ClassSidebarRow(clazz: clazz)
                     .tag(clazz.objectID as NSManagedObjectID?)
             }
         }
@@ -145,6 +144,15 @@ private struct SidebarView: View {
             }
             .padding(20)
         }
+    }
+}
+
+private struct ClassSidebarRow: View {
+    @ObservedObject var clazz: Classes
+
+    var body: some View {
+        Text(clazz.name ?? "Untitled")
+            .bold()
     }
 }
     
@@ -279,6 +287,7 @@ private extension HomeView {
         newClass.name = name
 
         do {
+            try viewContext.obtainPermanentIDs(for: [newClass])
             try viewContext.save()
             newClassName = ""
             showingClassPopover = false
@@ -289,8 +298,8 @@ private extension HomeView {
 
     func addTask() {
         guard !newTaskTitle.isEmpty,
-              let selectedTaskClassID,
-              let selectedTaskClass = classesFetched.first(where: { $0.objectID == selectedTaskClassID }) else {
+              let selectedClassID = selectedTaskClassID,
+              let selectedTaskClass = classesFetched.first(where: { $0.objectID == selectedClassID }) else {
             return
         }
 
