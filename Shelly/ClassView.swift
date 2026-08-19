@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-
 // MARK: - ClassView
 
 struct ClassView: View {

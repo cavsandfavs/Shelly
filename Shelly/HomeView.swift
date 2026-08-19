@@ -17,10 +17,14 @@ struct HomeView: View {
     @State private var date = Date()
     @State private var time = Date()
     @State private var selectedClassID: NSManagedObjectID? = nil
-    @State private var selectedTaskClassID: NSManagedObjectID? = nil
     @State private var newClassName: String = ""
+    @State private var taskClassName: String = ""
     @State private var showingClassPopover = false
     @State private var showingAddPopover = false
+    private var selectedClass: Classes? {
+        guard let selectedClassID else { return nil }
+        return classesFetched.first { $0.objectID == selectedClassID }
+    }
     
     @FetchRequest(
         entity: AssignmentTask.entity(),
@@ -36,12 +40,7 @@ struct HomeView: View {
         sortDescriptors: [NSSortDescriptor(keyPath: \Classes.name, ascending: true)],
         animation: .default
     ) var classesFetched: FetchedResults<Classes>
-    
-    private var selectedClass: Classes? {
-        guard let selectedClassID else { return nil }
-        return classesFetched.first { $0.objectID == selectedClassID }
-    }
-    
+
     var body: some View {
         NavigationSplitView {
             SidebarView(
@@ -64,7 +63,7 @@ struct HomeView: View {
                         newTaskTitle: $newTaskTitle,
                         date: $date,
                         time: $time,
-                        selectedTaskClassID: $selectedTaskClassID,
+                        taskClassName: $taskClassName,
                         showingAddPopover: $showingAddPopover,
                         onDelete: { task in
                             viewContext.delete(task)
@@ -95,25 +94,32 @@ private struct SidebarView: View {
     
     var body: some View {
         Button(action: { selectedClassID = nil }) {
-            Text("Home").font(.title)
-                .foregroundStyle(Color.blue)
+            Image(systemName: "house.fill")
+            .foregroundStyle(.blue)
         }
         
-        Text("My Classes").font(.title)
-        List(selection: $selectedClassID) {
-            ForEach(classes, id: \.objectID) { clazz in
-                ClassSidebarRow(clazz: clazz)
-                    .tag(clazz.objectID as NSManagedObjectID?)
+        Divider()
+        HStack {
+            Text("My Classes")
+                .font(.title)
+                .foregroundStyle(Color.blue)
+            
+            Button(action: { showingClassPopover.toggle() }) {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundStyle(.blue)
             }
+            .buttonStyle(PlainButtonStyle())
         }
+            List(selection: $selectedClassID) {
+                ForEach(classes, id: \.objectID) { clazz in
+                    ClassSidebarRow(clazz: clazz)
+                        .tag(clazz.objectID as NSManagedObjectID?)
+                }
+            }
         .listStyle(.sidebar)
         .foregroundStyle(.orange)
         .navigationSplitViewColumnWidth(min: 150, ideal: 250, max: .infinity)
-        
-        Button(action: { showingClassPopover.toggle() }) {
-            Image(systemName: "plus")
-                .foregroundStyle(Color.green)
-        }
+
         .padding()
         .popover(isPresented: $showingClassPopover) {
             VStack(alignment: .leading, spacing: 16) {
@@ -162,7 +168,7 @@ private struct AssignmentsDetailView: View {
     @Binding var newTaskTitle: String
     @Binding var date: Date
     @Binding var time: Date
-    @Binding var selectedTaskClassID: NSManagedObjectID?
+    @Binding var taskClassName: String
     @Binding var showingAddPopover: Bool
     let onDelete: (AssignmentTask) -> Void
     let onAddTask: () -> Void
@@ -172,25 +178,32 @@ private struct AssignmentsDetailView: View {
     
     var body: some View {
         VStack {
-            Text("Assignments")
-                .font(.largeTitle)
-                .bold()
-                .padding()
-                .foregroundStyle(.blue)
-            
-            Text("Assignments Due For Today: \(appData.tasksDueToday.count)")
-                .padding()
-            
-            Button(action: { showingAddPopover = true }) {
-                Text("Add Task")
-                    .font(.headline)
-                    .padding()
-                    .foregroundStyle(.white)
-                    .frame(width: 100)
-                    .background(Color.blue)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Assignments")
+                        .font(.largeTitle)
+                        .bold()
+                        .foregroundStyle(.blue)
+                    
+                    Text("\(appData.tasksDueToday.count) due today")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                Button(action: { showingAddPopover = true }) {
+                    Image(systemName: "plus.circle.fill")
+                        .resizable()
+                        .frame(width: 36, height: 36)
+                        .foregroundStyle(.blue)
+                }
+                .buttonStyle(PlainButtonStyle())
             }
-            .buttonStyle(PlainButtonStyle())
+            .padding()
+            
+            Divider()
+            
             List {
                 ForEach(tasksFetched, id: \.objectID) { task in
                     TaskRowView(task: task, onDelete: onDelete)
@@ -202,7 +215,7 @@ private struct AssignmentsDetailView: View {
                     newTaskTitle: $newTaskTitle,
                     date: $date,
                     time: $time,
-                    selectedTaskClassID: $selectedTaskClassID,
+                    taskClassName: $taskClassName,
                     classes: classes,
                     onAdd: onAddTask
                 )
@@ -223,51 +236,59 @@ private struct TaskRowView: View {
             Text(appData.dateFormatter.string(from: task.taskDate ?? Date()))
             Text(appData.timeFormatter.string(from: task.taskTime ?? Date()))
             Text(task.clazz?.name ?? "")
-            Button("Completed") { onDelete(task) }
-                .font(.caption)
-                .foregroundStyle(Color.green)
-        }
-    }
-}
-
-private struct AddTaskPopover: View {
-    @Binding var newTaskTitle: String
-    @Binding var date: Date
-    @Binding var time: Date
-    @Binding var selectedTaskClassID: NSManagedObjectID?
-    let classes: FetchedResults<Classes>
-    let onAdd: () -> Void
-    
-    private var selectedClassName: String {
-        guard let selectedTaskClassID,
-              let clazz = classes.first(where: { $0.objectID == selectedTaskClassID }) else {
-            return "Current Classes"
-        }
-        return clazz.name ?? "Untitled"
-    }
-    
-    var body: some View {
-        VStack {
-            TextField("Task", text: $newTaskTitle)
-            DatePicker("Select a date", selection: $date, displayedComponents: .date)
-                .datePickerStyle(.graphical)
-            DatePicker("Select a time", selection: $time, displayedComponents: .hourAndMinute)
-            Menu {
-                ForEach(classes, id: \.objectID) { clazz in
-                    Button(clazz.name ?? "Untitled") {
-                        selectedTaskClassID = clazz.objectID
-                    }
-                }
-            } label: {
-                Text(selectedClassName)
+            Button(action: { onDelete(task) }) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.blue)
             }
-            Button("Add", action: onAdd)
-                .disabled(newTaskTitle.isEmpty)
-                .disabled(selectedTaskClassID == nil)
+            .buttonStyle(.plain)
+
         }
-        .padding()
     }
 }
+    
+    private struct AddTaskPopover: View {
+        @Binding var newTaskTitle: String
+        @Binding var date: Date
+        @Binding var time: Date
+        @Binding var taskClassName: String
+        let classes: FetchedResults<Classes>
+        let onAdd: () -> Void
+        
+        // Used for comparing for automcomplete
+        private var trimmedClassName: String {
+            taskClassName.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        
+        private var suggestedClasses: [Classes] {
+            classes.filter { clazz in
+                let name = clazz.name ?? ""
+                return !trimmedClassName.isEmpty && name.localizedCaseInsensitiveContains(trimmedClassName)
+            }
+        }
+        
+        var body: some View {
+            VStack {
+                TextField("Task", text: $newTaskTitle)
+                DatePicker("Select a date", selection: $date, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                DatePicker("Select a due time", selection: $time, displayedComponents: .hourAndMinute)
+                TextField("Class", text: $taskClassName)
+                    .textFieldStyle(.roundedBorder)
+                    .textInputSuggestions {
+                        ForEach(suggestedClasses, id: \.objectID) { clazz in
+                            let name = clazz.name ?? "Untitled"
+                            Text(name)
+                                .textInputCompletion(name)
+                        }
+                    }
+                Button("Add", action: onAdd)
+                    .foregroundStyle(.blue)
+                    .disabled(newTaskTitle.isEmpty)
+                    .disabled(trimmedClassName.isEmpty)
+            }
+            .padding()
+        }
+    }
 
 // MARK: - Helpers
 
@@ -287,6 +308,7 @@ private extension HomeView {
         newClass.name = name
 
         do {
+            // Forces permanent objectID for sidebar nav correctness
             try viewContext.obtainPermanentIDs(for: [newClass])
             try viewContext.save()
             newClassName = ""
@@ -296,25 +318,38 @@ private extension HomeView {
         }
     }
 
+    func existingClass(named name: String) -> Classes? {
+        classesFetched.first {
+            ($0.name ?? "").localizedCaseInsensitiveCompare(name) == .orderedSame
+        }
+    }
+
+    func createClass(name: String) -> Classes {
+        let newClass = Classes(context: viewContext)
+        newClass.name = name
+        return newClass
+    }
+
     func addTask() {
-        guard !newTaskTitle.isEmpty,
-              let selectedClassID = selectedTaskClassID,
-              let selectedTaskClass = classesFetched.first(where: { $0.objectID == selectedClassID }) else {
+        let trimmedClassName = taskClassName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !newTaskTitle.isEmpty, !trimmedClassName.isEmpty else {
             return
         }
 
+        let taskClass = existingClass(named: trimmedClassName) ?? createClass(name: trimmedClassName)
         let newTask = AssignmentTask(context: viewContext)
         newTask.taskTitle = newTaskTitle
         newTask.taskDate = date
         newTask.taskTime = time
-        newTask.clazz = selectedTaskClass
+        newTask.clazz = taskClass
 
         do {
+            try viewContext.obtainPermanentIDs(for: [taskClass, newTask])
             try viewContext.save()
             dailyGoalCount()
             newTaskTitle = ""
             date = .now
-            selectedTaskClassID = nil
+            taskClassName = ""
             showingAddPopover = false
         } catch {
             print("Failed to save context: \(error.localizedDescription)")
