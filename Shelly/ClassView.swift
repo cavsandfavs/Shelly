@@ -73,7 +73,7 @@ struct ClassView: View {
             }
             .padding()
 
-            ForEach(tasksForClass, id: \.objectID) { task in
+            ForEach(tasksForClass, id: \.id) { task in
                 ClassTaskRowView(
                     task: task,
                     onDelete: { delete(task: task) }
@@ -109,7 +109,7 @@ private struct ClassTaskRowView: View {
 private extension ClassView {
     func delete(task: AssignmentTask) {
         viewContext.delete(task)
-        appData.tasksDueToday.removeAll { $0.objectID == task.objectID }
+        appData.tasksDueToday.removeAll { $0.id == task.id }
         do {
             try viewContext.save()
         } catch {
@@ -128,11 +128,11 @@ private extension ClassView {
     }
 
     func deleteClass() {
-        let deletedTaskIDs = tasksForClass.map(\.objectID)
+        let deletedTaskIDs = tasksForClass.map(\.id)
         for task in tasksForClass {
             viewContext.delete(task)
         }
-        appData.tasksDueToday.removeAll { deletedTaskIDs.contains($0.objectID) }
+        appData.tasksDueToday.removeAll { deletedTaskIDs.contains($0.id) }
         viewContext.delete(clazz)
         
         do {

@@ -16,14 +16,14 @@ struct HomeView: View {
     @State private var newTaskTitle: String = ""
     @State private var date = Date()
     @State private var time = Date()
-    @State private var selectedClassID: NSManagedObjectID? = nil
+    @State private var selectedClassID: UUID? = nil
     @State private var newClassName: String = ""
     @State private var taskClassName: String = ""
     @State private var showingClassPopover = false
     @State private var showingAddPopover = false
     private var selectedClass: Classes? {
         guard let selectedClassID else { return nil }
-        return classesFetched.first { $0.objectID == selectedClassID }
+        return classesFetched.first { $0.id == selectedClassID }
     }
     
     @FetchRequest(
@@ -48,7 +48,7 @@ struct HomeView: View {
                 newClassName: $newClassName,
                 showingClassPopover: $showingClassPopover,
                 classes: classesFetched,
-                onAddClass: { addNewClass(name: newClassName) }
+                onAddClass: { addClass(name: newClassName) }
             )
         } detail: {
             ZStack(alignment: .topTrailing) {
@@ -67,7 +67,7 @@ struct HomeView: View {
                         showingAddPopover: $showingAddPopover,
                         onDelete: { task in
                             viewContext.delete(task)
-                            appData.tasksDueToday.removeAll { $0.objectID == task.objectID }
+                            appData.tasksDueToday.removeAll { $0.id == task.id }
                             do {
                                 try viewContext.save()
                             } catch {
@@ -86,7 +86,7 @@ struct HomeView: View {
 // MARK: - Subviews
 
 private struct SidebarView: View {
-    @Binding var selectedClassID: NSManagedObjectID?
+    @Binding var selectedClassID: UUID?
     @Binding var newClassName: String
     @Binding var showingClassPopover: Bool
     let classes: FetchedResults<Classes>
@@ -111,9 +111,9 @@ private struct SidebarView: View {
             .buttonStyle(PlainButtonStyle())
         }
             List(selection: $selectedClassID) {
-                ForEach(classes, id: \.objectID) { clazz in
+                ForEach(classes, id: \.id) { clazz in
                     ClassSidebarRow(clazz: clazz)
-                        .tag(clazz.objectID as NSManagedObjectID?)
+                        .tag(clazz.id)
                 }
             }
         .listStyle(.sidebar)
@@ -186,6 +186,8 @@ private struct AssignmentsDetailView: View {
                         .foregroundStyle(.blue)
                     
                     Text("\(appData.tasksDueToday.count) due today")
+                        .contentTransition(.numericText())
+                        .animation(.default, value: appData.tasksDueToday.count)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -205,7 +207,7 @@ private struct AssignmentsDetailView: View {
             Divider()
             
             List {
-                ForEach(tasksFetched, id: \.objectID) { task in
+                ForEach(tasksFetched, id: \.id) { task in
                     TaskRowView(task: task, onDelete: onDelete)
                 }
             }
@@ -275,7 +277,7 @@ private struct TaskRowView: View {
                 TextField("Class", text: $taskClassName)
                     .textFieldStyle(.roundedBorder)
                     .textInputSuggestions {
-                        ForEach(suggestedClasses, id: \.objectID) { clazz in
+                        ForEach(suggestedClasses, id: \.id) { clazz in
                             let name = clazz.name ?? "Untitled"
                             Text(name)
                                 .textInputCompletion(name)
@@ -303,13 +305,12 @@ private extension HomeView {
         }
     }
 
-    func addNewClass(name: String) {
+    func addClass(name: String) {
         let newClass = Classes(context: viewContext)
+        newClass.id = UUID()
         newClass.name = name
 
         do {
-            // Forces permanent objectID for sidebar nav correctness
-            try viewContext.obtainPermanentIDs(for: [newClass])
             try viewContext.save()
             newClassName = ""
             showingClassPopover = false
@@ -326,6 +327,7 @@ private extension HomeView {
 
     func createClass(name: String) -> Classes {
         let newClass = Classes(context: viewContext)
+        newClass.id = UUID()
         newClass.name = name
         return newClass
     }
@@ -338,13 +340,13 @@ private extension HomeView {
 
         let taskClass = existingClass(named: trimmedClassName) ?? createClass(name: trimmedClassName)
         let newTask = AssignmentTask(context: viewContext)
+        newTask.id = UUID()
         newTask.taskTitle = newTaskTitle
         newTask.taskDate = date
         newTask.taskTime = time
         newTask.clazz = taskClass
 
         do {
-            try viewContext.obtainPermanentIDs(for: [taskClass, newTask])
             try viewContext.save()
             dailyGoalCount()
             newTaskTitle = ""
