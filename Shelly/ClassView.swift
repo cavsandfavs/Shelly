@@ -13,10 +13,8 @@ struct ClassView: View {
     @EnvironmentObject var appData: AppData
     @ObservedObject var clazz: Classes
     let onDeleteClass: () -> Void
-    
     @State private var editedName: String = ""
     @State private var showEditTaskPopover: Bool = false
-
     private var tasksForClass: [AssignmentTask] {
         tasksFetched.filter { $0.clazz == clazz }
     }
@@ -28,7 +26,7 @@ struct ClassView: View {
     ) var tasksFetched: FetchedResults<AssignmentTask>
 
     var body: some View {
-        List {
+        VStack {
             HStack {
                 Text(clazz.name ?? "Untitled")
                     .font(.largeTitle.bold())
@@ -47,6 +45,9 @@ struct ClassView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
+                .menuIndicator(.hidden)
+                .menuStyle(.borderlessButton)
+                
                 .popover(isPresented: $showEditTaskPopover) {
                     Text("Edit Name")
                     TextField("New Name", text: $editedName)
@@ -72,17 +73,18 @@ struct ClassView: View {
                 }
             }
             .padding()
-
-            ForEach(tasksForClass, id: \.id) { task in
-                ClassTaskRowView(
-                    task: task,
-                    onDelete: { delete(task: task) }
-                )
+            Divider()
+            List {
+                ForEach(tasksForClass, id: \.id) { task in
+                    ClassTaskRowView(
+                        task: task,
+                        onDelete: { delete(task: task) }
+                    )
+                }
             }
         }
     }
 }
-
 // MARK: - Subviews
 
 private struct ClassTaskRowView: View {
@@ -97,9 +99,11 @@ private struct ClassTaskRowView: View {
             Text(appData.dateFormatter.string(from: task.taskDate ?? Date()))
             Text(appData.timeFormatter.string(from: task.taskTime ?? Date()))
             Text(task.clazz?.name ?? "")
-            Button("Completed", action: onDelete)
-                .font(.caption)
-                .foregroundStyle(Color.green)
+            Button(action: onDelete) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.blue)
+            }
+            .buttonStyle(PlainButtonStyle())
         }
     }
 }

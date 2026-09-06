@@ -261,6 +261,7 @@ private struct TaskRowView: View {
             taskClassName.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         
+        // Autocomplete suggestions from current classes
         private var suggestedClasses: [Classes] {
             classes.filter { clazz in
                 let name = clazz.name ?? ""
