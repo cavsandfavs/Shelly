@@ -16,18 +16,18 @@ struct HomeView: View {
     @State private var newTaskTitle: String = ""
     @State private var date = Date()
     @State private var time = Date()
-    @State private var selectedClassID: UUID? = nil
+    @State private var selectedClassID: NSManagedObjectID? = nil
     @State private var newClassName: String = ""
     @State private var taskClassName: String = ""
     @State private var showingClassPopover = false
     @State private var showingAddPopover = false
     private var selectedClass: Classes? {
         guard let selectedClassID else { return nil }
-        return classesFetched.first { $0.id == selectedClassID }
+        return classesFetched.first { $0.objectID == selectedClassID }
     }
     
     @FetchRequest(
-        entity: AssignmentTask.entity(),
+        entity: AssignmentTask.entity(),	
         sortDescriptors: [
             NSSortDescriptor(keyPath: \AssignmentTask.taskDate, ascending: true),
             NSSortDescriptor(keyPath: \AssignmentTask.taskTime, ascending: true)
@@ -86,7 +86,7 @@ struct HomeView: View {
 // MARK: - Subviews
 
 private struct SidebarView: View {
-    @Binding var selectedClassID: UUID?
+    @Binding var selectedClassID: NSManagedObjectID?
     @Binding var newClassName: String
     @Binding var showingClassPopover: Bool
     let classes: FetchedResults<Classes>
@@ -113,7 +113,7 @@ private struct SidebarView: View {
             List(selection: $selectedClassID) {
                 ForEach(classes, id: \.id) { clazz in
                     ClassSidebarRow(clazz: clazz)
-                        .tag(clazz.id)
+                        .tag(clazz.objectID)
                 }
             }
         .listStyle(.sidebar)
@@ -206,11 +206,21 @@ private struct AssignmentsDetailView: View {
             
             Divider()
             
-            List {
-                ForEach(tasksFetched, id: \.id) { task in
-                    TaskRowView(task: task, onDelete: onDelete)
+            Group {
+                if tasksFetched.isEmpty {
+                    ContentUnavailableView {
+                        Label("No assignments", systemImage: "checkmark.seal")
+                    }
+                } else {
+                    List {
+                        ForEach(tasksFetched, id: \.id) { task in
+                            TaskRowView(task: task, onDelete: onDelete)
+                        }
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
             .onAppear(perform: onAppear)
             .popover(isPresented: $showingAddPopover) {
                 AddTaskPopover(
@@ -236,7 +246,9 @@ private struct TaskRowView: View {
         HStack(spacing: 10) {
             Text(task.taskTitle ?? "Untitled")
             Text(appData.dateFormatter.string(from: task.taskDate ?? Date()))
+                .foregroundStyle(task.isOverdue ? .red : .primary)
             Text(appData.timeFormatter.string(from: task.taskTime ?? Date()))
+                .foregroundStyle(task.isOverdue ? .red : .primary)
             Text(task.clazz?.name ?? "")
             Button(action: { onDelete(task) }) {
                 Image(systemName: "checkmark.circle.fill")
@@ -359,3 +371,4 @@ private extension HomeView {
         }
     }
 }
+

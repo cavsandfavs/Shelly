@@ -16,7 +16,7 @@ struct ClassView: View {
     @State private var editedName: String = ""
     @State private var showEditTaskPopover: Bool = false
     private var tasksForClass: [AssignmentTask] {
-        tasksFetched.filter { $0.clazz == clazz }
+        tasksFetched.filter { $0.clazz?.objectID == clazz.objectID }
     }
 
     @FetchRequest(
@@ -74,17 +74,23 @@ struct ClassView: View {
             }
             .padding()
             Divider()
-            List {
-                ForEach(tasksForClass, id: \.id) { task in
-                    ClassTaskRowView(
-                        task: task,
-                        onDelete: { delete(task: task) }
-                    )
+            Group {
+                if tasksFetched.isEmpty {
+                    ContentUnavailableView {
+                        Label("No assignments", systemImage: "checkmark.seal")
+                    }
+                } else {
+                    List {
+                        ForEach(tasksForClass, id: \.id) { task in
+                            ClassTaskRowView(task: task, onDelete: { delete(task: task) })
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }
-    }
-}
 // MARK: - Subviews
 
 private struct ClassTaskRowView: View {
@@ -96,6 +102,12 @@ private struct ClassTaskRowView: View {
     var body: some View {
         HStack(spacing: 10) {
             Text(task.taskTitle ?? "Untitled")
+                .foregroundStyle(task.isOverdue ? .red : .primary)
+            if task.isOverdue {
+                Label("Overdue", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .font(.caption)
+            }
             Text(appData.dateFormatter.string(from: task.taskDate ?? Date()))
             Text(appData.timeFormatter.string(from: task.taskTime ?? Date()))
             Text(task.clazz?.name ?? "")
@@ -147,3 +159,4 @@ private extension ClassView {
         }
     }
 }
+
